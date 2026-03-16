@@ -14,8 +14,19 @@ export const SocketProvider = ({ children }) => {
   useEffect(() => {
     if (!isAuthenticated || !user) return;
 
-    const SOCKET_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
-    socketRef.current = io(SOCKET_URL, { transports: ['websocket', 'polling'] });
+    // ✅ Fix: Use separate SOCKET_URL env variable
+    const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 
+                       import.meta.env.VITE_API_URL?.replace('/api', '') || 
+                       'http://localhost:5000';
+
+    // ✅ Fix: Add credentials and reconnection options
+    socketRef.current = io(SOCKET_URL, {
+      transports: ['websocket', 'polling'],
+      withCredentials: true,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+    });
 
     socketRef.current.on('connect', () => {
       socketRef.current.emit('register', { userId: user.id, role: user.role });
@@ -25,7 +36,6 @@ export const SocketProvider = ({ children }) => {
       setNotifications(prev => [{ ...notif, id: Date.now(), seen: false }, ...prev.slice(0, 49)]);
       setUnreadCount(c => c + 1);
 
-      // Show toast for important notifications
       if (notif.type === 'JOB_ACCEPTED') {
         toast.success(notif.message, { icon: '🎉', duration: 5000 });
       } else if (notif.type === 'JOB_COMPLETED') {
@@ -40,11 +50,11 @@ export const SocketProvider = ({ children }) => {
     };
   }, [isAuthenticated, user]);
 
-  const joinJobRoom = (jobId) => socketRef.current?.emit('join_job', jobId);
+  const joinJobRoom  = (jobId) => socketRef.current?.emit('join_job', jobId);
   const leaveJobRoom = (jobId) => socketRef.current?.emit('leave_job', jobId);
-  const sendTyping = (jobId, senderName) => socketRef.current?.emit('typing', { jobId, senderName });
-  const stopTyping = (jobId) => socketRef.current?.emit('stop_typing', { jobId });
-  const markAllRead = () => { setUnreadCount(0); setNotifications(prev => prev.map(n => ({ ...n, seen: true }))); };
+  const sendTyping   = (jobId, senderName) => socketRef.current?.emit('typing', { jobId, senderName });
+  const stopTyping   = (jobId) => socketRef.current?.emit('stop_typing', { jobId });
+  const markAllRead  = () => { setUnreadCount(0); setNotifications(prev => prev.map(n => ({ ...n, seen: true }))); };
 
   return (
     <SocketContext.Provider value={{
