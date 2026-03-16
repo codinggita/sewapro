@@ -17,26 +17,13 @@ const adminRoutes  = require('./routes/admin');
 const app = express();
 const server = http.createServer(app);
 
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
-
-// ✅ Fix 1: Socket.io CORS with credentials
 const io = new Server(server, {
-  cors: {
-    origin: FRONTEND_URL,
-    methods: ['GET', 'POST'],
-    credentials: true
-  }
+  cors: { origin: process.env.FRONTEND_URL || 'http://localhost:3000', methods: ['GET','POST'] }
 });
 app.set('io', io);
 
 connectDB();
-
-// ✅ Fix 2: Express CORS with credentials
-app.use(cors({
-  origin: FRONTEND_URL,
-  credentials: true
-}));
-
+app.use(cors());
 app.use(helmet());
 app.use(morgan('dev'));
 app.use(express.json({ limit: '10mb' }));
@@ -56,11 +43,11 @@ io.on('connection', (socket) => {
     onlineUsers.set(userId, socket.id);
     socket.userId = userId; socket.userRole = role;
   });
-  socket.on('join_job',    (jobId) => socket.join('job_' + jobId));
-  socket.on('leave_job',   (jobId) => socket.leave('job_' + jobId));
-  socket.on('typing',      ({ jobId, senderName }) => socket.to('job_' + jobId).emit('user_typing', { senderName }));
+  socket.on('join_job', (jobId) => socket.join('job_' + jobId));
+  socket.on('leave_job', (jobId) => socket.leave('job_' + jobId));
+  socket.on('typing', ({ jobId, senderName }) => socket.to('job_' + jobId).emit('user_typing', { senderName }));
   socket.on('stop_typing', ({ jobId }) => socket.to('job_' + jobId).emit('user_stop_typing'));
-  socket.on('disconnect',  () => { if (socket.userId) onlineUsers.delete(socket.userId); });
+  socket.on('disconnect', () => { if (socket.userId) onlineUsers.delete(socket.userId); });
 });
 
 app.set('notifyUser', (targetUserId, notification) => {
